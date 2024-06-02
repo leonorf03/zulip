@@ -6612,3 +6612,117 @@ class NoRecipientIDsTest(ZulipTestCase):
         #
         # This covers a rare corner case.
         self.assert_length(subs, 0)
+
+class MentionNotificationTest(ZulipTestCase):
+    def test_notify_user_about_mention_in_existing_stream(self) -> None:
+        # Set up users and stream
+        user_profile = self.example_user("cordelia")
+        self.login_user(user_profile)
+        recipient = self.example_user("hamlet")
+        realm = recipient.realm
+        stream_name = "Denmark"
+
+        # Notify user about mention
+        result = self.client_post(
+            "/json/users/me/notify_user",
+            {
+                "principal": recipient.id,
+                "stream_name": stream_name,
+            },
+        )
+        self.assert_json_success(result)
+
+        # Construct the expected message content
+        expected_message = "You have been mentioned in a stream you are not subscribed to: "
+
+        # Now fetch the recipient's messages to ensure they received it
+        result = self.api_get(
+            recipient, "/api/v1/messages", {"anchor": "newest", "num_before": 50, "num_after": 0}
+        )
+        self.assert_json_success(result)
+
+        msg = most_recent_message(recipient)
+
+        self.assertIn(expected_message, msg.content)
+        self.assertIn(stream_name, msg.content)
+        self.assertEqual(msg.sender_id, self.notification_bot(realm).id)
+
+    def test_notify_user_about_mention_in_new_stream(self) -> None:
+        # Set up users and stream
+        user_profile = self.example_user("cordelia")
+        self.login_user(user_profile)
+        recipient = self.example_user("hamlet")
+        realm = recipient.realm
+        stream_name = "Portugal"
+
+        self.make_stream(stream_name, realm=realm, invite_only=False, is_web_public=True)
+
+        # Notify user about mention
+        result = self.client_post(
+            "/json/users/me/notify_user",
+            {
+                "principal": recipient.id,
+                "stream_name": stream_name,
+            },
+        )
+        self.assert_json_success(result)
+
+        # Construct the expected message content
+        expected_message = "You have been mentioned in a stream you are not subscribed to: "
+
+        # Now fetch the recipient's messages to ensure they received it
+        result = self.api_get(
+            recipient, "/api/v1/messages", {"anchor": "newest", "num_before": 50, "num_after": 0}
+        )
+        self.assert_json_success(result)
+
+        msg = most_recent_message(recipient)
+
+        self.assertIn(expected_message, msg.content)
+        self.assertIn(stream_name, msg.content)
+        self.assertEqual(msg.sender_id, self.notification_bot(realm).id)
+
+    def test_notify_user_in_private_stream(self) -> None:
+        user_profile = self.example_user("cordelia")
+        self.login_user(user_profile)
+        recipient = self.example_user("hamlet")
+        stream_name = "PrivateStream"
+        self.make_stream(stream_name, invite_only=True)
+        self.subscribe(user_profile, stream_name)
+
+        result = self.client_post(
+            "/json/users/me/notify_user",
+            {
+                "principal": recipient.id,
+                "stream_name": stream_name,
+            },
+        )
+        self.assert_json_error(result, "You can't notify this user of a mention in this stream.")
+
+    def test_notify_user_invalid_principal(self) -> None:
+        user_profile = self.example_user("cordelia")
+        self.login_user(user_profile)
+        stream_name = "Denmark"
+
+        result = self.client_post(
+            "/json/users/me/notify_user",
+            {
+                "principal": 999999,  # Invalid user ID
+                "stream_name": stream_name,
+            },
+        )
+        self.assert_json_error(result, "No such user")
+
+    def test_notify_user_invalid_principal_type(self) -> None:
+        user_profile = self.example_user("cordelia")
+        self.login_user(user_profile)
+        stream_name = "Denmark"
+
+        result = self.client_post(
+            "/json/users/me/notify_user",
+            {
+                "principal": "invalid_id",  # Invalid principal ID type
+                "stream_name": stream_name,
+            },
+        )
+        self.assert_json_error(result, 'Argument "principal" is not valid JSON.')

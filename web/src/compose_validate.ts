@@ -240,6 +240,9 @@ export function warn_if_mentioning_unsubscribed_user(
                 name: mentioned.full_name,
                 classname: compose_banner.CLASSNAMES.recipient_not_subscribed,
                 should_add_guest_user_indicator: people.should_add_guest_user_indicator(user_id),
+                notify_button_text: can_subscribe_other_users
+                    ? $t({defaultMessage: "Notify them"})
+                    : null,
             };
 
             const new_row_html = render_not_subscribed_warning(context);

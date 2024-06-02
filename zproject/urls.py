@@ -165,6 +165,7 @@ from zerver.views.streams import (
     get_topics_backend,
     json_get_stream_id,
     list_subscriptions_backend,
+    notify_user_mention_backend,
     remove_default_stream,
     remove_default_stream_group,
     remove_subscriptions_backend,
@@ -496,6 +497,8 @@ v1_api_and_json_patterns = [
         PATCH=update_subscriptions_backend,
         DELETE=remove_subscriptions_backend,
     ),
+    # Notify unsubscribed user
+    rest_path("users/me/notify_user", POST=notify_user_mention_backend),
     # topic-muting -> zerver.views.user_topics
     # (deprecated and will be removed once clients are migrated to use '/user_topics')
     rest_path("users/me/subscriptions/muted_topics", PATCH=update_muted_topic),

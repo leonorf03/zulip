@@ -18,6 +18,7 @@ import * as flatpickr from "./flatpickr";
 import {$t_html} from "./i18n";
 import * as message_edit from "./message_edit";
 import * as narrow from "./narrow";
+import * as notify_api from "./notify_api";
 import * as onboarding_steps from "./onboarding_steps";
 import {page_params} from "./page_params";
 import * as poll_modal from "./poll_modal";
@@ -275,6 +276,44 @@ export function initialize() {
             const sub = sub_store.get(stream_id);
 
             subscriber_api.add_user_ids_to_stream([user_id], sub, success, xhr_failure);
+        },
+    );
+
+    $("body").on(
+        "click",
+        `.${CSS.escape(
+            compose_banner.CLASSNAMES.recipient_not_subscribed,
+        )} .main-view-banner-notify-button`,
+        (event) => {
+            event.preventDefault();
+            const {$banner_container} = get_input_info(event);
+            const $invite_row = $(event.target).parents(".main-view-banner");
+
+            const user_id = Number.parseInt($invite_row.data("user-id"), 10);
+            const stream_id = Number.parseInt($invite_row.data("stream-id"), 10);
+
+            function success() {
+                $invite_row.remove();
+            }
+
+            function xhr_failure(xhr) {
+                let error_message = "Failed to notify user!";
+                if (xhr.responseJSON?.msg) {
+                    error_message = xhr.responseJSON.msg;
+                }
+                compose.clear_invites();
+                compose_banner.show_error_message(
+                    error_message,
+                    compose_banner.CLASSNAMES.generic_compose_error,
+                    $banner_container,
+                    $("textarea#compose-textarea"),
+                );
+                $(event.target).prop("disabled", true);
+            }
+
+            const sub = sub_store.get(stream_id);
+
+            notify_api.notify_user_about_mention(user_id, sub, success, xhr_failure);
         },
     );
 

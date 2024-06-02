@@ -9,6 +9,9 @@
         {{else}}
         <div class="banner_content">{{> @partial-block}}</div>
         {{/if}}
+        {{#if notify_button_text}}
+        <button class="main-view-banner-notify-button{{#if hide_close_button}} right_edge{{/if}}">{{notify_button_text}}</button>
+        {{/if}}
         {{#if button_text}}
         <button class="main-view-banner-action-button{{#if hide_close_button}} right_edge{{/if}}" {{#if scheduling_message}}data-validation-trigger="schedule"{{/if}}>{{button_text}}</button>
         {{/if}}

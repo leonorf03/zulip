@@ -246,7 +246,8 @@
                 }
             }
 
-            .main-view-banner-action-button {
+            .main-view-banner-action-button,
+            .main-view-banner-notify-button {
                 background-color: hsl(50deg 45% 61% / 10%);
                 color: hsl(50deg 45% 61%);
 

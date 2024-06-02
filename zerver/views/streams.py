@@ -462,6 +462,10 @@ check_principals: Validator[Union[List[str], List[int]]] = check_union(
     [check_list(check_string), check_list(check_int)],
 )
 
+check_principal: Validator[Union[str, int]] = check_union(
+    [check_string, check_int],
+)
+
 
 @has_request_variables
 def remove_subscriptions_backend(
@@ -813,6 +817,71 @@ def send_messages_for_new_subscribers(
 
     if len(notifications) > 0:
         do_send_messages(notifications, mark_as_read=[user_profile.id])
+
+
+@require_non_guest_user
+@has_request_variables
+def notify_user_mention_backend(
+    request: HttpRequest,
+    user_profile: UserProfile,
+    principal: Union[str, int] = REQ(
+        json_validator=check_principal,
+    ),
+    stream_name: str = REQ(),
+) -> HttpResponse:
+    recipient_user = principal_to_user_profile(user_profile, principal)
+
+    allowed = send_message_to_mentioned_user(user_profile, recipient_user, stream_name)
+
+    if allowed == False:
+        raise JsonableError("You can't notify this user of a mention in this stream.")
+
+    else:
+        return json_success(request)
+
+
+def send_message_to_mentioned_user(
+    acting_user: UserProfile,
+    recipient_user: UserProfile,
+    stream_name: str,
+) -> bool:
+    stream_name = stream_name.strip('"')
+
+    realm = acting_user.realm
+    mention_backend = MentionBackend(realm.id)
+
+    (stream, _) = access_stream_by_name(acting_user, stream_name)
+
+    # This user can be notified of a mention in this stream
+    if (
+        (stream.is_web_public or (not stream.invite_only and not stream.is_in_zephyr_realm))
+        and not stream.invite_only
+        and not recipient_user.is_guest
+    ):
+        with override_language(recipient_user.default_language):
+            message = "You have been mentioned in a stream you are not subscribed to:"
+
+        message += f" #**{stream.name}**\n"
+
+        notifications = []
+        sender = get_system_bot(settings.NOTIFICATION_BOT, recipient_user.realm_id)
+
+        notifications.append(
+            internal_prep_private_message(
+                sender=sender,
+                recipient_user=recipient_user,
+                content=message,
+                mention_backend=mention_backend,
+            )
+        )
+
+        if len(notifications) > 0:
+            do_send_messages(notifications, mark_as_read=[acting_user.id])
+
+        return True
+
+    # User cannot be notified of a mention in this stream
+    return False
 
 
 @has_request_variables
